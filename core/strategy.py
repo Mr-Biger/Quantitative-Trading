@@ -39,6 +39,7 @@ class Calculate():
         p = len(returns[returns>0]) / len(returns)
         prob = stats.binom.pmf(6, 10, p)
         return prob
+        
     #计算收益率均值的参数估计
     @property
     def calc_yield_rate_range(self):
@@ -48,6 +49,7 @@ class Calculate():
         sigma = yield_rate.std()
         plt.plot()
         pass
+        
     #############股票指标计算############
     #计算macd
     #EMA计算方法请参考指数平滑均线文档，这里的平滑系数参数以12日，26日，9日参数为例。参数大家可以进行修改。
@@ -125,14 +127,21 @@ class Calculate():
         self.df['KDJ_J'] = 3 * self.df['KDJ_K'] - 2 * self.df['KDJ_D']
         self.df.fillna(0,inplace=True)
     #计算rsi
-    def calc_rsi(self,N=24, N1=6):
-        
+    def calc_rsi(self,N=24, N1=6):        
         self.df['value'] = self.df['close'] - self.df['close'].shift(1)
         self.df.fillna(0,inplace=True)
-        self.df['value1'] = self.df['value']
-        self.df['value1'][self.df['value1']<0]=0
-        self.df['value2']= self.df['value']
-        self.df['value2'][self.df['value2']>0]=0
+        
+        value1=self.df['value'].copy()
+        value1[value1<0]=0
+        self.df['value1']=value1
+        #self.df['value1'] = self.df['value']
+        #self.df['value1'][self.df['value1']<0]=0
+        value2=self.df['value'].copy()
+        value2[value2>0]=0
+        self.df['value2']=value2        
+        
+        #self.df['value2']= self.df['value']
+        #self.df['value2'][self.df['value2']>0]=0
         
         self.df['plus'+str(N)] = self.df['value1'].rolling(window=N,center=False).sum()
         self.df['plus'+str(N1)] = self.df['value1'].rolling(window=N1,center=False).sum()
@@ -259,10 +268,10 @@ class Strategy(Analysis):
             exec("self.{}".format(k))
             buy += v.get('buy', '')
             sell += v.get('sell', '')
-            #print('买入决策：' + buy)
-            #print('卖出决策：' + sell)
+            print('买入决策：' + buy)
+            print('卖出决策：' + sell)
             
-        #设计MACD策略买卖点 bsp
+        #设计策略买卖点 bsp
         l = len(self.df)
         bsp = np.zeros(l)
         for i in range(l-1):      

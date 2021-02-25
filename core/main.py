@@ -12,7 +12,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 #from matplotlib.pylab import date2num
 
-from datacenter import Data
+from datacenter import DataCenter
 from strategy import Strategy
 from drawstockdata import DrawStockData
 import strategy_doc
@@ -22,54 +22,86 @@ sys.path.append("..")
 from conf import setting
 
 
+class Stock(DataCenter, Strategy, DrawStockData):
 
-
-class Stock(Data, Strategy, DrawStockData):
-    pass
-'''
-class main():
-    def __init__(self, codes, strategys):
-        names = self.__dict__
-        for k, v in codes.items():
-            names['stock' + v] = Stock(name=k,code=v,start='2018-01-05')
-            names['stock_df_' + v] = names['stock' + v].df
+    def __init__(self,name='',code = "sh.600000",fields="date,code,open,high,low,close,preclose,volume,amount,adjustflag,turn,tradestatus,pctChg,isST",start_date='2020-01-02',end_date='2021-02-21',frequency="d",adjustflag="3",locdata=True):
         
-'''
-#股票代码
-codes = {
-        '中兴通讯':'000063',
-        '乐视网':'300104',
-        '东方通信':'600776',
-        '万科':'000002',
-        '平安银行':'000001'
-        }
-codes2 = {
-        '中兴通讯':'000063',
-        }
+        self.name = name
+        self.code = code
+        self.fields = fields
+        self.start_date = start_date
+        self.end_date = end_date
+        self.frequency = frequency
+        self.adjustflag = adjustflag
+        self.locdata = locdata
+        
+        self.df = self.get_data()
+        self.mat_data = self.pandas2mat()
+        
 
-final_data = pd.DataFrame({"名称": [],
-                           "资金": [],
-                           "收益": [],
-                           "易数": []
-                          })
-#遍历股票
-for k,v in codes.items():
-    exec('stock{1} = Stock(name="{0}",code="{1}",start="2018-01-05")'.format(k,v))
-    exec('stock_df_{0} = stock{0}.df'.format(v))
-    exec('loock_bakc_{0} = stock{0}.loocback(strategy_doc.strategy)'.format(v))
-    exec("pd_sell = loock_bakc_{0}['资产'][loock_bakc_{0}['操作']=='sell'].copy()".format(v))
-    #print(pd_sell)
-    if len(pd_sell)>0:
-        final_data = final_data.append(pd.DataFrame({"名称": k,
-                                                     "资金": pd_sell.iloc[-1],
-                                                     "收益": (pd_sell.iloc[-1] - 10000) / 10000,
-                                                     "易数": pd_sell.size
-                                                    },index = [v]))
-        #exec("loock{0}['资产'][loock{0}['操作']=='sell'].plot()".format(v))
-        plt.plot(pd_sell.values,label=k+v)
-print(final_data.sort_values(by='收益'))
-plt.rcParams['font.sans-serif'] = ['SimHei']
-plt.legend()
-plt.show()
+def run():
+    #股票池
+    stockpool={}
+    
+    #回测结果
+    final_data = pd.DataFrame({"名称": [],
+                               "资金": [],
+                               "收益率": [],
+                               "易手数": [],
+                               "均收益率":[]
+                              })
+    
+    #遍历股票 回测
+    for k,v in setting.codes.items():
+        
+        stock = stockpool.setdefault(k,{})
+        
+        stock['instance'] = Stock(name=k,code=v)
+        stock['df'] = stock['instance'].df
+        stock['loopback_data'] = stock['instance'].loocback(strategy_doc.strategies[setting.strategy],setting.cash,setting.port_value,setting.batch,setting.stoploss,setting.stop_switch)
+        #pd_sell = stock['loopback_data']['资产'][stock['loopback_data']['操作']=='sell'].copy()
+        #pd_sell = stock['loopback_data']['资产'][stock['loopback_data']['操作'].str.contains('sell')].copy()
+        
+        pd_sell = stock['loopback_data']['资产'][(stock['loopback_data']['操作']=='sell') | (stock['loopback_data']['操作']=='st_sell')].copy()
+        
+        #exec('stock{0} = Stock(name="{0}",code="{1}")'.format(k,v))
+        ##exec('stock_df_{0} = stock{0}.df'.format(k,v)) 
+        #exec('loock_bakc_{0} = stock{0}.loocback(strategy_doc.{1},{2},{3},{4},{5})'.format(k,setting.strategy,setting.cash,setting.port_value,setting.batch,setting.stoploss))
+        #exec("pd_sell = loock_bakc_{0}['资产'][loock_bakc_{0}['操作']=='sell'].copy()".format(k))
+        #print(pd_sell)
+        if len(pd_sell)>0:
 
-#stock000063.anal_rsi
+            if len(pd_sell)>3:
+                l = len(pd_sell)
+                buchang = l//3
+                v1 = pd_sell.iloc[buchang]
+                v2 = pd_sell.iloc[2*buchang]
+                v3 = pd_sell.iloc[-1]
+                
+                res = (((v3-v2)/v2) - ((v2-v1)/v1))**2/2
+            else:
+                res = 1
+                
+            final_data = final_data.append(pd.DataFrame({"名称": k,
+                                                         "资金": pd_sell.iloc[-1],
+                                                         "收益率": (pd_sell.iloc[-1] - setting.cash) / setting.cash,
+                                                         "易手数": pd_sell.size,
+                                                         "均收益率":res
+                                                        },index = [v]))                
+                
+            #绘制结果
+            if setting.drawres:
+                plt.plot(pd_sell.values,label=k+v)
+    #绘制结果
+    if setting.drawres:
+        plt.rcParams['font.sans-serif'] = ['SimHei']
+        plt.legend()
+        plt.show()
+    
+    #打印结果
+    print(final_data.sort_values(by='收益率'))
+    
+    return stockpool
+
+if __name__ == "__main__":
+    stockpool=run()

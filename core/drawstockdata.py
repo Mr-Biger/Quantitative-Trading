@@ -1,11 +1,13 @@
 # -*- coding: utf-8 -*-
-import datetime
+#import datetime
 import matplotlib.pyplot as plt
-import matplotlib.finance as mpf
+#import matplotlib.finance as mpf
+import mpl_finance as mpf
 import pandas as pd
 import numpy as np
 from matplotlib.pylab import date2num
-from matplotlib.finance import candlestick_ohlc
+#from matplotlib.finance import candlestick_ohlc
+from mpl_finance import candlestick_ohlc
 from matplotlib.dates import DateFormatter, WeekdayLocator, DayLocator, MONDAY
 
 class Shape():
@@ -69,6 +71,7 @@ class Shape():
                 starsig.append(0)
         
         self.df.insert(0,'starsig', starsig)
+        
     def evening_star(self):
         pass
         
